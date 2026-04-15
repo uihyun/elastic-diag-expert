@@ -16,6 +16,8 @@ The `support-diagnostics` tool includes a separate sanitization utility (`scrub.
 
 This produces a new archive prefixed with `scrubbed-` containing the sanitized data.
 
+For ECE, ECK, and Elastic Agent diagnostics, you can also use the sanitization utility (`scrub.sh` / `scrub.bat`), but you must unzip the bundle first, scrub the extracted directory, then zip it back up.
+
 ## For Contributors
 
 - Never include real customer data, credentials, or PII in issues, PRs, or examples
