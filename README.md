@@ -40,7 +40,7 @@ The analysis rules, heuristic thresholds, and cross-module correlations in this 
 
 ---
 
-## Quick Start (2 minutes)
+## Quick Start
 
 ### Option A: Claude Project (recommended for teams)
 
@@ -58,9 +58,64 @@ The analysis rules, heuristic thresholds, and cross-module correlations in this 
 
 You can also add this Project to a regular Claude chat without opening the Project workspace. This is useful for quick one-off analyses.
 
-### Option C: Claude Code (for CLI users)
+### _CLI Tools (Options C, D, & E)_
 
-This project is designed for the Claude web UI, but if you prefer Claude Code (terminal), copy `instructions.md` to `CLAUDE.md` in your working directory and run `claude`.
+_Note: A `SKILL.md` example is included in this repository for reference. The commands below use `instructions.md` as the single source of truth to build your skill._
+
+### Option C: [Claude Code (CLI)](https://claude.com/product/claude-code)
+
+Use this as a local rule for the current project or a global skill.
+
+- Local Rule: Link `instructions.md` in your working directory:
+  ```bash
+  ln -s /path/to/instructions.md .clauderules
+  # or
+  ln -s /path/to/instructions.md CLAUDE.md
+  ```
+- Skill: Register it as a reusable skill:
+  ```bash
+  mkdir -p ~/.claude/skills/elastic-diag-expert
+  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.claude/skills/elastic-diag-expert/SKILL.md
+  ```
+- Usage:
+  - Local Rule: Run `claude` (loads rules automatically).
+  - Skill: Run `claude` and use `/elastic-diag-expert` inside a session.
+
+### Option D: [Gemini CLI](https://geminicli.com/)
+
+Use this as a local context or a global skill.
+
+- Local Rule: Link `instructions.md` in your working directory:
+  ```bash
+  ln -s /path/to/instructions.md .gemini.md
+  # or
+  ln -s /path/to/instructions.md GEMINI.md
+  ```
+- Skill: Register it as a reusable skill:
+  ```bash
+  mkdir -p ~/.gemini/skills/elastic-diag-expert
+  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.gemini/skills/elastic-diag-expert/SKILL.md
+  ```
+- Usage:
+  - Local Rule: Run `gemini` (loads rules automatically).
+  - Skill: Run `gemini` and use `/skills enable elastic-diag-expert` inside a session.
+
+### Option E: [OpenAI Codex CLI](https://developers.openai.com/codex/cli)
+
+Use this as a local agent or a global skill.
+
+- Local Rule: Link `instructions.md` in your working directory:
+  ```bash
+  ln -s /path/to/instructions.md AGENTS.md
+  ```
+- Skill: Register it as a reusable skill:
+  ```bash
+  mkdir -p ~/.agents/skills/elastic-diag-expert
+  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.agents/skills/elastic-diag-expert/SKILL.md
+  ```
+- Usage:
+  - Local Rule: Run `codex` (loads rules automatically).
+  - Skill: Run `codex` and use `$elastic-diag-expert` inside a session.
 
 ---
 
