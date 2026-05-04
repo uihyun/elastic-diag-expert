@@ -8,7 +8,7 @@ This project builds on the official Elastic diagnostic tools ([support-diagnosti
 
 Upload your diagnostic files into a Claude conversation and get:
 
-- Comprehensive analysis across 10 diagnostic modules (ES, ECK, ECE, Agent)
+- Comprehensive analysis across 12 diagnostic modules (ES, ECK, ECE, Agent, Logstash, Kibana)
 - Specific root causes backed by actual numbers from your data
 - Copy-pasteable API commands to fix issues
 - Known-issue detection via GitHub issues and official release notes
@@ -25,7 +25,7 @@ Upload your diagnostic files into a Claude conversation and get:
 The analysis rules, heuristic thresholds, and cross-module correlations in this project come directly from how Elastic Support engineers actually review diagnostics — the same criteria used in real case reviews. This means:
 
 - **Trusted and validated.** Every threshold (e.g., "heap > 85% = critical", "shards/node > 1000 = critical") reflects real-world operational experience, not arbitrary guesses. The rules are based on what Elastic's own diagnostic tools collect and what senior engineers look for.
-- **Consistent analysis.** Whether you run it Monday or Friday, with one engineer or another, the analysis follows the same structured pipeline — 10 modules, same thresholds, same cross-module correlation checks. No more "it depends on who reviews it."
+- **Consistent analysis.** Whether you run it Monday or Friday, with one engineer or another, the analysis follows the same structured pipeline — 12 modules, same thresholds, same cross-module correlation checks. No more "it depends on who reviews it."
 - **Shareable and discussable.** Because the analysis is structured and consistent, you can share results with teammates and have a concrete basis for discussion. Everyone sees the same findings, same severity levels, same recommended actions.
 - **Continuously improving.** The lessons-learned feedback loop means real insights from actual cases get captured and fed back into the Project's Files. The more cases the community analyzes, the smarter this gets.
 
@@ -40,7 +40,7 @@ The analysis rules, heuristic thresholds, and cross-module correlations in this 
 
 ---
 
-## Quick Start
+## Quick Start (2 minutes)
 
 ### Option A: Claude Project (recommended for teams)
 
@@ -58,64 +58,9 @@ The analysis rules, heuristic thresholds, and cross-module correlations in this 
 
 You can also add this Project to a regular Claude chat without opening the Project workspace. This is useful for quick one-off analyses.
 
-### _CLI Tools (Options C, D, & E)_
+### Option C: Claude Code (for CLI users)
 
-_Note: A `SKILL.md` example is included in this repository for reference. The commands below use `instructions.md` as the single source of truth to build your skill._
-
-### Option C: [Claude Code (CLI)](https://claude.com/product/claude-code)
-
-Use this as a local rule for the current project or a global skill.
-
-- Local Rule: Link `instructions.md` in your working directory:
-  ```bash
-  ln -s /path/to/instructions.md .clauderules
-  # or
-  ln -s /path/to/instructions.md CLAUDE.md
-  ```
-- Skill: Register it as a reusable skill:
-  ```bash
-  mkdir -p ~/.claude/skills/elastic-diag-expert
-  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.claude/skills/elastic-diag-expert/SKILL.md
-  ```
-- Usage:
-  - Local Rule: Run `claude` (loads rules automatically).
-  - Skill: Run `claude` and use `/elastic-diag-expert` inside a session.
-
-### Option D: [Gemini CLI](https://geminicli.com/)
-
-Use this as a local context or a global skill.
-
-- Local Rule: Link `instructions.md` in your working directory:
-  ```bash
-  ln -s /path/to/instructions.md .gemini.md
-  # or
-  ln -s /path/to/instructions.md GEMINI.md
-  ```
-- Skill: Register it as a reusable skill:
-  ```bash
-  mkdir -p ~/.gemini/skills/elastic-diag-expert
-  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.gemini/skills/elastic-diag-expert/SKILL.md
-  ```
-- Usage:
-  - Local Rule: Run `gemini` (loads rules automatically).
-  - Skill: Run `gemini` and use `/skills enable elastic-diag-expert` inside a session.
-
-### Option E: [OpenAI Codex CLI](https://developers.openai.com/codex/cli)
-
-Use this as a local agent or a global skill.
-
-- Local Rule: Link `instructions.md` in your working directory:
-  ```bash
-  ln -s /path/to/instructions.md AGENTS.md
-  ```
-- Skill: Register it as a reusable skill:
-  ```bash
-  mkdir -p ~/.agents/skills/elastic-diag-expert
-  echo -e "---\nname: elastic-diag-expert\ndescription: \"Expert for Elastic Stack (ES, ECK, ECE, Agent) diagnostics. Analyzes logs, diagnostic bundles, and API outputs for root causes and actionable fixes. Handles cluster health, shard allocation, master bottlenecks, and JVM errors.\"\n---\n\n$(cat instructions.md)" > ~/.agents/skills/elastic-diag-expert/SKILL.md
-  ```
-- Usage:
-  - Local Rule: Run `codex` (loads rules automatically).
-  - Skill: Run `codex` and use `$elastic-diag-expert` inside a session.
+This project is designed for the Claude web UI, but if you prefer Claude Code (terminal), copy `instructions.md` to `CLAUDE.md` in your working directory and run `claude`.
 
 ---
 
@@ -154,7 +99,7 @@ Upload your diagnostic files — ZIP (under 30MB), individual JSON files, screen
 
 **2. Get the analysis**
 
-Claude analyzes all uploaded data across 10 modules, provides findings with severity levels, root causes backed by specific numbers, and copy-pasteable API commands to fix issues. Charts and visualizations are generated automatically.
+Claude analyzes all uploaded data across 12 modules, provides findings with severity levels, root causes backed by specific numbers, and copy-pasteable API commands to fix issues. Charts and visualizations are generated automatically.
 
 **3. Follow up naturally**
 
@@ -185,7 +130,7 @@ Finished a good analysis? Share the chat with teammates using Claude's chat shar
 
 ## How It Works
 
-The instructions define an Elastic diagnostics expert persona with 10 analysis modules. Here's the flow:
+The instructions define an Elastic diagnostics expert persona with 12 analysis modules. Here's the flow:
 
 ![Analysis Pipeline — how diagnostic files flow through each analyzer module](images/analysis-pipeline.svg)
 
@@ -247,18 +192,20 @@ After running all applicable modules, the system performs **cross-module correla
 
 ## What It Analyzes
 
-| Module         | What It Checks                                     | Data Source                              |
-| -------------- | -------------------------------------------------- | ---------------------------------------- |
-| Cluster Health | Status, pending tasks, unassigned shards           | `cluster_health.json`                    |
-| Sharding       | Over/undersharding, shard balance, empty indices   | `shards.json`, `nodes_stats.json`        |
-| Settings       | Allocation blocks, watermarks, aggressive configs  | `cluster_settings.json`, `settings.json` |
-| Resources      | JVM heap, CPU, disk, GC, thread pools, breakers    | `nodes_stats.json`                       |
-| Allocation     | Unassigned reasons, disk balance, decider analysis | `allocation_explain.json`                |
-| ILM            | Error states, stalled phases, policy review        | `ilm_explain.json`, `ilm_policies.json`  |
-| Logs           | OOM, circuit breakers, error patterns, GC pauses   | `elasticsearch.log`, `gc.log`            |
-| ECK/K8s        | Pod crashes, OOMKilled, events, operator errors    | Pod YAMLs, Events, operator logs         |
-| ECE            | Allocator health, plan failures, proxy issues      | ECE API outputs, Docker info             |
-| Agent          | Component state, DEGRADED/FAILED units, log errors | `state.yml`, agent logs                  |
+| Module         | What It Checks                                        | Data Source                               |
+| -------------- | ----------------------------------------------------- | ----------------------------------------- |
+| Cluster Health | Status, pending tasks, unassigned shards              | `cluster_health.json`                     |
+| Sharding       | Over/undersharding, shard balance, empty indices      | `shards.json`, `nodes_stats.json`         |
+| Settings       | Allocation blocks, watermarks, aggressive configs     | `cluster_settings.json`, `settings.json`  |
+| Resources      | JVM heap, CPU, disk, GC, thread pools, breakers       | `nodes_stats.json`                        |
+| Allocation     | Unassigned reasons, disk balance, decider analysis    | `allocation_explain.json`                 |
+| ILM            | Error states, stalled phases, policy review           | `ilm_explain.json`, `ilm_policies.json`   |
+| Logs           | OOM, circuit breakers, error patterns, GC pauses      | `elasticsearch.log`, `gc.log`             |
+| ECK/K8s        | Pod crashes, OOMKilled, events, operator errors       | Pod YAMLs, Events, operator logs          |
+| ECE            | Allocator health, plan failures, proxy issues         | ECE API outputs, Docker info              |
+| Agent          | Component state, DEGRADED/FAILED units, log errors    | `state.yml`, agent logs                   |
+| Logstash       | Pipeline throughput, backpressure, JVM, plugin issues | `logstash_node_stats.json`, LS logs       |
+| Kibana         | Status, Task Manager health, alerting, Fleet          | `kibana_status.json`, `kibana_stats.json` |
 
 ## How to Get Diagnostic Data
 
@@ -360,7 +307,7 @@ All contributions are reviewed before merging. Never include customer data in is
 
 The instructions define an Elastic diagnostics expert persona with:
 
-- **10 analysis modules** with specific heuristic rules and thresholds (e.g., heap > 85% = critical, shards/node > 1000 = critical)
+- **12 analysis modules** with specific heuristic rules and thresholds (e.g., heap > 85% = critical, shards/node > 1000 = critical)
 - **Cross-module correlation** to find interconnected issues (e.g., high heap + many shards = oversharding is the root cause)
 - **Known issue detection** — searches official release notes first, then GitHub issues for ongoing bugs
 - **Proactive visualization** of key metrics using Claude Artifacts (auto-generated, no need to ask)
@@ -386,8 +333,8 @@ Analysis rules and thresholds are based on Elastic best practices and real-world
 - [x] ECK Kubernetes analysis (Module 8)
 - [x] ECE platform analysis (Module 9)
 - [x] Elastic Agent analysis (Module 10)
-- [ ] Logstash diagnostic analysis module
-- [ ] Kibana diagnostic analysis module
+- [x] Logstash diagnostic analysis module
+- [x] Kibana diagnostic analysis module
 - [ ] Claude Code skill version (CLI-based analysis)
 - [ ] MCP connector for Elasticsearch-backed RAG
 - [ ] Automated benchmark comparison (before/after)

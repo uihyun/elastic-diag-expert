@@ -37,6 +37,8 @@ Determine the environment type first, then guide accordingly:
 - **ECK (Elastic Cloud on Kubernetes)** → ECK Diagnostics bundle
 - **ECE (Elastic Cloud Enterprise)** → ECE Diagnostics bundle
 - **Elastic Agent issues** → Agent diagnostic bundle
+- **Logstash issues** → Logstash diagnostic bundle or API output
+- **Kibana issues** → Kibana diagnostic bundle or API output
 - **Not sure / mixed** → I'll help figure it out from whatever you provide
 
 ---
@@ -172,6 +174,49 @@ Key files to upload:
 
 ---
 
+#### For Logstash Issues
+
+Run the diagnostic tool against Logstash (default port 9600):
+
+```bash
+sudo ./diagnostics.sh --type logstash-local --host localhost --port 9600 --bypassDiagVerify
+```
+
+Or collect API output directly:
+
+```bash
+curl -s localhost:9600/ | python -m json.tool
+curl -s localhost:9600/_node/stats | python -m json.tool
+curl -s localhost:9600/_node?graph=true | python -m json.tool
+curl -s localhost:9600/_node/hot_threads
+```
+
+Upload the resulting ZIP (or individual JSON files) plus `logstash.log` if available.
+
+---
+
+#### For Kibana Issues
+
+Run the diagnostic tool against Kibana (default port 5601):
+
+```bash
+sudo ./diagnostics.sh --type kibana-local --host localhost --port 5601 -u elastic -p --bypassDiagVerify --ssl --noVerify
+```
+
+For Elastic Cloud, use `--type kibana-api`.
+
+Or collect API output directly:
+
+```bash
+curl -s -H 'kbn-xsrf: true' -u elastic localhost:5601/api/status | python -m json.tool
+curl -s -H 'kbn-xsrf: true' -u elastic localhost:5601/api/stats | python -m json.tool
+curl -s -H 'kbn-xsrf: true' -u elastic localhost:5601/api/task_manager/_health | python -m json.tool
+```
+
+Upload the resulting ZIP (or individual JSON files) plus `kibana.log` if available.
+
+---
+
 #### For Elastic Agent Issues
 
 Run `elastic-agent diagnostics` on the affected host:
@@ -214,6 +259,8 @@ When you receive files, identify the environment type and run applicable modules
 If the ECE/ECK diagnostic bundle contains ES logs, analyze ES logs first.
 
 **Elastic Agent**: Module 10 (Agent-specific) + Modules 1-7 if ES cluster data is also provided
+**Logstash**: Module 11 (Logstash-specific)
+**Kibana**: Module 12 (Kibana-specific)
 **Mixed**: Run all applicable modules based on available data
 
 Always perform ALL applicable modules, even if the user asked about a specific issue — other problems may be interconnected. Start with the user's specific concern, then broaden.
@@ -908,6 +955,161 @@ elastic-agent-diagnostics-<timestamp>/
 │   └── goroutine.txt            # Goroutine dump
 └── version.txt
 ```
+
+---
+
+## Module 11: Logstash Diagnostics
+
+**Data needed**: Logstash diagnostic bundle (from `--type logstash-api/logstash-local`) or direct API output
+
+**Source**: `support-diagnostics` with `--type logstash-local --port 9600`, or direct Logstash API calls.
+
+**Diagnostic bundle structure:**
+
+```
+logstash-diagnostics-YYYYMMDD-HHMMSS/
+├── logstash_version.json        # / (root endpoint, version info)
+├── logstash_node.json           # /_node (node info, pipelines, OS, JVM config)
+├── logstash_node_stats.json     # /_node/stats (runtime metrics, pipeline stats)
+├── logstash_nodes_hot_threads.json  # /_node/hot_threads
+├── logstash_plugins.json        # /_node/plugins (installed plugins)
+├── logstash_health_report.json  # /_health_report (8.16+)
+├── logstash.log                 # Logstash log (local/remote mode)
+└── ...system files (top, iostat, etc. in local/remote mode)
+```
+
+**Direct API equivalent (if no diagnostic tool):**
+
+```bash
+curl -s localhost:9600/ | python -m json.tool                    # version
+curl -s localhost:9600/_node | python -m json.tool               # node info
+curl -s localhost:9600/_node/stats | python -m json.tool         # node stats
+curl -s localhost:9600/_node/hot_threads                         # hot threads
+curl -s localhost:9600/_node/plugins | python -m json.tool       # plugins
+curl -s localhost:9600/_health_report | python -m json.tool      # health (8.16+)
+```
+
+**Analysis checks:**
+
+**Pipeline Performance (from `logstash_node_stats.json`):**
+
+- For each pipeline, check `events.out` vs `events.in`. If `in` >> `out` → events are being dropped or filtered. If `out` == 0 and `in` > 0 → pipeline is stuck.
+- `events.queue_push_duration_in_millis` high relative to throughput → queue backpressure, pipeline can't keep up with input rate.
+- `flow.output_throughput.current` vs `flow.output_throughput.lifetime` — if current is significantly below lifetime average → recent performance degradation.
+- `flow.queue_backpressure.current` > 0.5 → WARNING. Pipeline is spending significant time waiting on queue capacity.
+- `flow.worker_concurrency.current` close to `pipeline.workers` setting → WARNING. All workers are saturated.
+
+**JVM/Resource (from `logstash_node_stats.json`):**
+
+- `jvm.mem.heap_used_percent` > 75% → WARNING. > 85% → CRITICAL.
+- `jvm.gc.collectors.old.collection_count` — calculate rate. Frequent old GC → heap pressure.
+- `process.cpu.percent` > 90% → CRITICAL.
+- `process.open_file_descriptors` approaching `process.max_file_descriptors` → WARNING.
+
+**Plugin Issues (from `logstash_node.json` with `?graph=true`):**
+
+- Check pipeline graph for plugins known to have performance issues (e.g., multiple grok patterns, dns filter without cache, heavy ruby filters).
+- Dead letter queue (DLQ) enabled but `dead_letter_queue.queue_size_in_bytes` growing → events are failing to process.
+
+**Pipeline Configuration:**
+
+- `pipeline.workers` set very high (> 2x CPU cores) → may cause thread contention. Typical recommendation: equal to CPU cores.
+- `pipeline.batch.size` very small (< 125) → throughput limited unnecessarily.
+- `queue.type: persisted` with `queue.max_bytes` very small → backpressure risk.
+
+**Health Report (8.16+, from `logstash_health_report.json`):**
+
+- Overall status != "green" → investigate. Check individual pipeline statuses.
+- Pipeline-level status "red" → pipeline is failing.
+
+**Log Analysis (from `logstash.log`):**
+
+- `Pipeline worker error` → plugin throwing exceptions, events may be lost.
+- `WARN` with `slow` or `timeout` → performance bottleneck.
+- `ConnectionReset` or `Connection refused` → output destination unreachable.
+- `OutOfMemoryError` → CRITICAL. JVM heap exhausted.
+- Pipeline reload errors → configuration issue.
+
+---
+
+## Module 12: Kibana Diagnostics
+
+**Data needed**: Kibana diagnostic bundle (from `--type kibana-api/kibana-local`) or direct API output
+
+**Source**: `support-diagnostics` with `--type kibana-local --port 5601`, or direct Kibana API calls.
+
+**Diagnostic bundle structure:**
+
+```
+kibana-diagnostics-YYYYMMDD-HHMMSS/
+├── kibana_stats.json            # /api/stats (basic stats, version)
+├── kibana_status.json           # /api/status (status, metrics)
+├── kibana_spaces.json           # /api/spaces/space (all spaces)
+├── kibana_roles.json            # /api/security/role
+├── kibana_user.json             # /internal/security/me
+├── kibana_actions.json          # /api/actions (connectors)
+├── kibana_alerts.json           # /api/alerts/_find (alert rules)
+├── kibana_fleet_*.json          # /api/fleet/* (Fleet/Agent configs)
+├── kibana_task_manager_health.json  # /api/task_manager/_health
+├── kibana_detection_engine_*.json   # Detection engine rules/status
+├── kibana.log                   # Kibana log (local/remote mode)
+├── gc.log                       # GC log
+└── ...per-space subdirectories for space-aware APIs
+```
+
+**Direct API equivalent (if no diagnostic tool):**
+
+```bash
+curl -s -H 'kbn-xsrf: true' localhost:5601/api/status | python -m json.tool
+curl -s -H 'kbn-xsrf: true' localhost:5601/api/stats | python -m json.tool
+curl -s -H 'kbn-xsrf: true' localhost:5601/api/task_manager/_health | python -m json.tool
+curl -s -H 'kbn-xsrf: true' localhost:5601/api/spaces/space | python -m json.tool
+```
+
+Note: Kibana APIs require the `kbn-xsrf: true` header. Authentication may also be required (`-u elastic -p`).
+
+**Analysis checks:**
+
+**Overall Health (from `kibana_status.json`):**
+
+- `status.overall.level` != "available" → CRITICAL. Kibana is degraded or unavailable.
+- Check `status.core` and `status.plugins` for specific components that are degraded.
+- `metrics.process.memory.heap.used_in_bytes` vs `heap.size_limit` — high heap usage → WARNING.
+- `metrics.response_times.avg_in_millis` > 1000ms → WARNING. Kibana is responding slowly.
+- `metrics.requests.disconnects` high relative to total requests → clients are timing out.
+
+**Task Manager Health (from `kibana_task_manager_health.json`):**
+
+- `status` != "OK" → WARNING or CRITICAL depending on value. Task Manager runs alerting, reporting, and other background tasks.
+- `stats.runtime.value.drift` high values → tasks are running behind schedule.
+- `stats.workload.value.overdue` > 0 → tasks are past their scheduled execution time.
+- `stats.capacity_estimation.value.observed.avg_recurring_cost_per_task` increasing → individual tasks getting more expensive.
+
+**Fleet/Agent (from `kibana_fleet_*.json`):**
+
+- Agent policies with many integrations → may cause performance issues on agents.
+- Fleet Server configuration — check enrollment token status, output configuration.
+- Unhealthy agents count — if high, investigate connectivity or policy issues.
+
+**Alerting/Detection (from `kibana_alerts.json`, `kibana_detection_engine_*.json`):**
+
+- Rules in "error" state → rules are failing to execute. Check `lastRun.outcome`.
+- Rules with very high `executionDuration` → expensive rules impacting Kibana performance.
+- Many rules with short intervals (< 1m) → heavy load on Kibana and ES.
+
+**Spaces and Security (from `kibana_spaces.json`, `kibana_roles.json`):**
+
+- Very large number of spaces → may impact performance.
+- Roles with overly broad index patterns (`*`) → security consideration.
+
+**Log Analysis (from `kibana.log`):**
+
+- `FATAL` → CRITICAL. Kibana crashed or failed to start.
+- `Error: connect ECONNREFUSED` → Kibana can't reach Elasticsearch.
+- `Request Timeout` → ES or Kibana overloaded.
+- `Task Manager` errors → background tasks failing (alerting, reporting).
+- `memory` or `heap` warnings → JVM pressure.
+- `EPERM` or `EACCES` → file permission issues.
 
 ---
 
