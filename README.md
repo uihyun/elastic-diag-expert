@@ -52,7 +52,7 @@ The analysis rules, heuristic thresholds, and cross-module correlations in this 
 
 **Claude Project description (paste this into the Description field):**
 
-> Describe your issue, upload diagnostic files, screenshots, or any relevant context to get structured analysis with root causes, actionable fixes, and API commands. Supports ES, ECK, ECE, Agent diagnostics, direct API output, and logs. See https://github.com/uihyun/elastic-diag-expert for full documentation, usage guide, and how it works.
+> Describe your issue, upload diagnostic files, screenshots, or any relevant context to get structured analysis with root causes, actionable fixes, and API commands. Supports ES, ECK, ECE, Agent, Logstash, Kibana diagnostics, direct API output, and logs. See https://github.com/uihyun/elastic-diag-expert for full documentation, usage guide, and how it works.
 
 ### Option B: Add to any chat (without creating a Project)
 
